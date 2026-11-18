@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sakha_royal_blue">#0A2443</color>
+    <color name="sakha_soft_white">#F9F9F9</color>
+    <color name="sakha_gold">#C9A24D</color>
+    <color name="sakha_light_gray">#BFC5C9</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

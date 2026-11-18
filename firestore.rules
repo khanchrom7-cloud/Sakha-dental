@@ -1,0 +1,530 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HELPERS ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+
+    function isBootstrappedSuperAdmin() {
+      return isSignedIn() &&
+             ('email_verified' in request.auth.token) &&
+             ('email' in request.auth.token) &&
+             request.auth.token.email_verified == true &&
+             request.auth.token.email == 'khanchrom7@gmail.com';
+    }
+
+    function staffDocExists(uid) {
+      return exists(/databases/$(database)/documents/staff_roles/$(uid));
+    }
+
+    function staffRole(uid) {
+      return get(/databases/$(database)/documents/staff_roles/$(uid)).data;
+    }
+
+    function isActiveStaffRole(uid, allowedRoles) {
+      return isSignedIn() &&
+             staffDocExists(uid) &&
+             staffRole(uid).active == true &&
+             staffRole(uid).role in allowedRoles;
+    }
+
+    function isSuperAdmin() {
+      return isBootstrappedSuperAdmin() || isActiveStaffRole(request.auth.uid, ['SUPER_ADMIN']);
+    }
+
+    function isSeniorAdminOrOwner() {
+      return isBootstrappedSuperAdmin() || isActiveStaffRole(request.auth.uid, ['SUPER_ADMIN', 'SENIOR_ADMIN']);
+    }
+
+    function isAdminOrAbove() {
+      return isBootstrappedSuperAdmin() || isActiveStaffRole(request.auth.uid, ['SUPER_ADMIN', 'SENIOR_ADMIN', 'ADMIN']);
+    }
+
+    function isDoctorOrAdmin() {
+      return isBootstrappedSuperAdmin() || isActiveStaffRole(request.auth.uid, ['SUPER_ADMIN', 'SENIOR_ADMIN', 'ADMIN', 'DOCTOR']);
+    }
+
+    function isStaff() {
+      return isBootstrappedSuperAdmin() || isActiveStaffRole(request.auth.uid, ['SUPER_ADMIN', 'SENIOR_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST']);
+    }
+
+    // --- VALIDATION HELPERS ---
+    function isValidPublicClinicProfile(data) {
+      return data.nameEn is string && data.nameEn.size() >= 2 && data.nameEn.size() <= 120 &&
+             data.nameFa is string && data.nameFa.size() >= 2 && data.nameFa.size() <= 120 &&
+             data.motto is string && data.motto.size() <= 200 &&
+             data.addressFa is string && data.addressFa.size() <= 300 &&
+             data.email is string && data.email.size() <= 120 &&
+             data.phones is list && data.phones.size() <= 5 &&
+             data.websitePublished is bool &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidPublicDoctorProfile(data) {
+      return data.fullNameEn is string && data.fullNameEn.size() >= 2 && data.fullNameEn.size() <= 120 &&
+             data.fullNameFa is string && data.fullNameFa.size() >= 2 && data.fullNameFa.size() <= 120 &&
+             data.titleFa is string && data.titleFa.size() <= 150 &&
+             data.education is list && data.education.size() <= 20 &&
+             data.training is list && data.training.size() <= 20 &&
+             data.licenses is list && data.licenses.size() <= 20 &&
+             data.experience is list && data.experience.size() <= 20 &&
+             data.published is bool &&
+             data.version is int && data.version >= 1 &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // STRICT PRICE PRIVACY ENFORCEMENT: Public services cannot contain ANY price fields!
+    function isValidPublicService(data) {
+      return !('price' in data) &&
+             !('unitPrice' in data) &&
+             !('unitPriceAfn' in data) &&
+             !('bridgeUnitPriceAfn' in data) &&
+             !('priceRange' in data) &&
+             !('estimatedCost' in data) &&
+             data.keys().hasOnly([
+               'nameEn', 'nameFa', 'namePs', 'category',
+               'descriptionEn', 'descriptionFa', 'descriptionPs',
+               'generalInfoEn', 'generalInfoFa', 'generalInfoPs',
+               'imageKey', 'published', 'sortOrder', 'updatedAt'
+             ]) &&
+             data.nameEn is string && data.nameEn.size() >= 2 && data.nameEn.size() <= 120 &&
+             data.nameFa is string && data.nameFa.size() >= 2 && data.nameFa.size() <= 120 &&
+             data.category is string && data.category.size() >= 2 && data.category.size() <= 80 &&
+             data.published is bool &&
+             data.sortOrder is int && data.sortOrder >= 0 &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidInternalPricing(data) {
+      return data.serviceId is string && data.serviceId.size() >= 1 && data.serviceId.size() <= 128 &&
+             data.serviceName is string && data.serviceName.size() >= 2 && data.serviceName.size() <= 120 &&
+             data.unitPriceAfn is number && data.unitPriceAfn >= 0 &&
+             data.active is bool &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidStaffRole(data) {
+      return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 150 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+             data.role in ['SUPER_ADMIN', 'SENIOR_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] &&
+             data.active is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidUserAccount(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+             data.preferredLanguage in ['DARI', 'PASHTO', 'ENGLISH'] &&
+             data.calendarMode in ['SOLAR_HIJRI', 'GREGORIAN', 'DUAL'] &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+             (!('linkedPatientId' in data) || (data.linkedPatientId is string && data.linkedPatientId.size() <= 128)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidPatientRecord(data) {
+      return data.patientCode is string && data.patientCode.size() >= 2 && data.patientCode.size() <= 40 &&
+             data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 120 &&
+             data.phone is string && data.phone.size() >= 4 && data.phone.size() <= 30 &&
+             data.age is int && data.age >= 0 && data.age <= 130 &&
+             data.archived is bool &&
+             (!('linkedUserUid' in data) || (data.linkedUserUid is string && data.linkedUserUid.size() <= 128)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidTreatmentPlan(data) {
+      return data.patientId is string && data.patientId.size() >= 1 && data.patientId.size() <= 128 &&
+             data.patientName is string && data.patientName.size() >= 1 && data.patientName.size() <= 120 &&
+             data.treatmentName is string && data.treatmentName.size() >= 2 && data.treatmentName.size() <= 120 &&
+             data.category is string && data.category.size() >= 2 && data.category.size() <= 80 &&
+             data.unitCount is int && data.unitCount >= 1 && data.unitCount <= 64 &&
+             data.unitPriceAfn is number && data.unitPriceAfn >= 0 &&
+             data.totalPriceAfn is number && data.totalPriceAfn >= 0 &&
+             data.status in ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] &&
+             data.steps is list && data.steps.size() <= 15 &&
+             data.completedSteps is list && data.completedSteps.size() <= 15 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidAppointment(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.patientName is string && data.patientName.size() >= 2 && data.patientName.size() <= 120 &&
+             data.dateIso is string && data.dateIso.size() >= 8 && data.dateIso.size() <= 30 &&
+             data.timeSlot is string && data.timeSlot.size() >= 3 && data.timeSlot.size() <= 30 &&
+             data.visitType in ['APPOINTMENT', 'ACTUAL_VISIT', 'CONSULTATION', 'COMPLETED_TREATMENT', 'FOLLOW_UP', 'CANCELLED'] &&
+             data.status in ['REQUESTED', 'CONFIRMED', 'CHECKED_IN', 'COMPLETED', 'CANCELLED', 'NO_SHOW'] &&
+             data.depositRequiredAfn is number && data.depositRequiredAfn >= 0 &&
+             data.depositPaid is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidMtuReceipt(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.patientName is string && data.patientName.size() >= 1 && data.patientName.size() <= 120 &&
+             data.receiptImageBase64 is string && data.receiptImageBase64.size() >= 10 && data.receiptImageBase64.size() <= 400000 &&
+             data.status in ['PENDING_VERIFICATION', 'APPROVED', 'REJECTED'] &&
+             data.approvedAmountAfn is number && data.approvedAmountAfn >= 0 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidPayment(data) {
+      return data.patientId is string && data.patientId.size() >= 1 && data.patientId.size() <= 128 &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.amountAfn is number && data.amountAfn > 0 &&
+             data.currency in ['AFN', 'USD', 'EUR', 'PKR', 'IRR'] &&
+             data.originalAmount is number && data.originalAmount > 0 &&
+             data.exchangeRate is number && data.exchangeRate > 0 &&
+             data.method in ['CASH', 'HESABPAY', 'MTU'] &&
+             data.status in ['CONFIRMED', 'REFUNDED'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidInvoice(data) {
+      return data.patientId is string && data.patientId.size() >= 1 && data.patientId.size() <= 128 &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.patientName is string && data.patientName.size() >= 1 && data.patientName.size() <= 120 &&
+             data.totalAfn is number && data.totalAfn >= 0 &&
+             data.paidAfn is number && data.paidAfn >= 0 &&
+             data.balanceAfn is number && data.balanceAfn >= 0 &&
+             data.status in ['UNPAID', 'PARTIAL', 'PAID', 'VOID'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // --- PUBLIC PORTAL & WEBSITE COLLECTIONS (READABLE PUBLICLY, NO PRICES OR PII) ---
+    match /public_clinic_profile/{docId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(docId) && isSuperAdmin() && isValidPublicClinicProfile(incoming());
+      allow delete: if false;
+    }
+
+    match /public_doctor_profile/{docId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(docId) && isSuperAdmin() && isValidPublicDoctorProfile(incoming());
+      allow delete: if false;
+    }
+
+    match /public_services/{serviceId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(serviceId) && isSuperAdmin() && isValidPublicService(incoming());
+      allow delete: if isValidId(serviceId) && isSuperAdmin();
+    }
+
+    match /public_media/{mediaId} {
+      allow get, list: if resource.data.consentApproved == true && resource.data.published == true;
+      allow create, update: if isValidId(mediaId) && isAdminOrAbove() &&
+                               incoming().title is string && incoming().title.size() <= 120 &&
+                               incoming().category is string && incoming().category.size() <= 60 &&
+                               incoming().consentApproved is bool &&
+                               incoming().published is bool &&
+                               incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow delete: if isValidId(mediaId) && isSuperAdmin();
+    }
+
+    // --- ONE-TIME PROTECTED BOOTSTRAP LOCK ---
+    match /clinic_bootstrap/{docId} {
+      allow get: if isSignedIn() && docId == 'lock';
+      allow create: if isSignedIn() && docId == 'lock' &&
+                       !exists(/databases/$(database)/documents/clinic_bootstrap/lock) &&
+                       incoming().ownerUid == request.auth.uid &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time;
+      allow update, delete: if false;
+    }
+
+    // --- STAFF RBAC REGISTRY ---
+    match /staff_roles/{uid} {
+      allow get: if isSignedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow list: if isSuperAdmin();
+      allow create: if isValidId(uid) && isSignedIn() && isValidStaffRole(incoming()) && (
+        isSuperAdmin() ||
+        (request.auth.uid == uid &&
+         incoming().uid == request.auth.uid &&
+         incoming().role == 'SUPER_ADMIN' &&
+         !exists(/databases/$(database)/documents/clinic_bootstrap/lock))
+      );
+      allow update: if isValidId(uid) && isSuperAdmin() && isValidStaffRole(incoming()) &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(uid) && isSuperAdmin() && uid != request.auth.uid;
+    }
+
+    // --- INTERNAL SERVICE PRICING (STAFF ONLY - NEVER GUEST OR PATIENT) ---
+    match /internal_service_pricing/{pricingId} {
+      allow get, list: if isStaff();
+      allow create, update: if isValidId(pricingId) && isSeniorAdminOrOwner() && isValidInternalPricing(incoming());
+      allow delete: if isValidId(pricingId) && isSuperAdmin();
+    }
+
+    // --- USER ACCOUNTS ---
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isStaff());
+      allow list: if isAdminOrAbove();
+      allow create: if isValidId(userId) && isSignedIn() && request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       !('linkedPatientId' in incoming()) &&
+                       isValidUserAccount(incoming());
+      allow update: if isValidId(userId) && isSignedIn() && isValidUserAccount(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt && (
+                         isAdminOrAbove() ||
+                         (request.auth.uid == userId &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'preferredLanguage', 'calendarMode', 'updatedAt']))
+                       );
+      allow delete: if isValidId(userId) && isSuperAdmin();
+    }
+
+    // --- PATIENT LINKING REQUESTS (NO AUTO-MERGE) ---
+    match /patient_link_requests/{requestId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdminOrAbove());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdminOrAbove());
+      allow create: if isValidId(requestId) && isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'PENDING' &&
+                       incoming().requesterName is string && incoming().requesterName.size() <= 120 &&
+                       incoming().requesterPhone is string && incoming().requesterPhone.size() <= 30 &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow update: if isValidId(requestId) && isAdminOrAbove() &&
+                       existing().status == 'PENDING' &&
+                       incoming().status in ['APPROVED', 'REJECTED'] &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow delete: if false;
+    }
+
+    // --- PARTNER / SPOUSE LINKING ---
+    match /partner_links/{linkId} {
+      allow get, list: if isSignedIn() && (
+        resource.data.initiatorUid == request.auth.uid ||
+        resource.data.partnerUid == request.auth.uid ||
+        isAdminOrAbove()
+      );
+      allow create: if isValidId(linkId) && isSignedIn() &&
+                       incoming().initiatorUid == request.auth.uid &&
+                       incoming().status == 'INVITED' &&
+                       incoming().consentInitiator == true &&
+                       incoming().consentPartner == false &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow update: if isValidId(linkId) && isSignedIn() &&
+                       incoming().initiatorUid == existing().initiatorUid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (resource.data.initiatorUid == request.auth.uid || resource.data.partnerUid == request.auth.uid || isAdminOrAbove());
+      allow delete: if isValidId(linkId) && isSuperAdmin();
+    }
+
+    // --- PATIENTS & CLINICAL RECORDS ---
+    match /patients/{patientId} {
+      allow get, list: if isStaff() || (isSignedIn() && resource.data.linkedUserUid == request.auth.uid);
+      allow create, update: if isValidId(patientId) && isStaff() && isValidPatientRecord(incoming());
+      allow delete: if isValidId(patientId) && isSuperAdmin();
+
+      // Internal clinical notes hidden from patients completely
+      match /internal_notes/{noteId} {
+        allow get, list: if isDoctorOrAdmin();
+        allow create, update: if isValidId(noteId) && isDoctorOrAdmin() &&
+                                 incoming().note is string && incoming().note.size() <= 2000 &&
+                                 incoming().createdAt is timestamp && incoming().createdAt <= request.time;
+        allow delete: if isValidId(noteId) && isSuperAdmin();
+      }
+    }
+
+    match /treatments/{treatmentId} {
+      allow get, list: if isStaff() || (isSignedIn() && resource.data.linkedUserUid == request.auth.uid);
+      allow create: if isValidId(treatmentId) && isDoctorOrAdmin() && isValidTreatmentPlan(incoming());
+      allow update: if isValidId(treatmentId) && isDoctorOrAdmin() && isValidTreatmentPlan(incoming()) &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(treatmentId) && isAdminOrAbove();
+    }
+
+    match /orthodontic_cases/{caseId} {
+      allow get, list: if isStaff() || (isSignedIn() && resource.data.linkedUserUid == request.auth.uid);
+      allow create, update: if isValidId(caseId) && isDoctorOrAdmin() &&
+                               incoming().patientId is string && incoming().patientId.size() <= 128 &&
+                               incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow delete: if isValidId(caseId) && isSuperAdmin();
+    }
+
+    match /implant_records/{implantId} {
+      allow get, list: if isStaff() || (isSignedIn() && resource.data.linkedUserUid == request.auth.uid);
+      allow create, update: if isValidId(implantId) && isDoctorOrAdmin() &&
+                               incoming().patientId is string && incoming().patientId.size() <= 128 &&
+                               incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow delete: if isValidId(implantId) && isSuperAdmin();
+    }
+
+    match /lab_orders/{orderId} {
+      allow get, list: if isStaff();
+      allow create, update: if isValidId(orderId) && isDoctorOrAdmin() &&
+                               incoming().patientId is string && incoming().patientId.size() <= 128 &&
+                               incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow delete: if isValidId(orderId) && isSuperAdmin();
+    }
+
+    match /prescriptions/{prescriptionId} {
+      allow get, list: if isStaff() || (isSignedIn() && resource.data.linkedUserUid == request.auth.uid);
+      allow create, update: if isValidId(prescriptionId) && isDoctorOrAdmin() &&
+                               incoming().patientId is string && incoming().patientId.size() <= 128 &&
+                               incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow delete: if isValidId(prescriptionId) && isSuperAdmin();
+    }
+
+    match /medicines/{medicineId} {
+      allow get, list: if isStaff();
+      allow create, update: if isValidId(medicineId) && isStaff() &&
+                               incoming().name is string && incoming().name.size() <= 120 &&
+                               incoming().quantity is int && incoming().quantity >= 0 &&
+                               incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow delete: if isValidId(medicineId) && isSeniorAdminOrOwner();
+    }
+
+    // --- APPOINTMENTS ---
+    match /appointments/{appointmentId} {
+      allow get, list: if isStaff() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(appointmentId) && isSignedIn() && isValidAppointment(incoming()) && (
+        isStaff() ||
+        (incoming().userId == request.auth.uid &&
+         incoming().status == 'REQUESTED' &&
+         incoming().depositPaid == false &&
+         incoming().visitType == 'APPOINTMENT')
+      );
+      allow update: if isValidId(appointmentId) && isSignedIn() && isValidAppointment(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt && (
+                         isStaff() ||
+                         (existing().userId == request.auth.uid &&
+                          incoming().status == 'CANCELLED' &&
+                          incoming().depositPaid == existing().depositPaid &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'visitType', 'updatedAt']))
+                       );
+      allow delete: if isValidId(appointmentId) && isSuperAdmin();
+    }
+
+    // --- MTU RECEIPT SUBMISSION & MANUAL ADMIN VERIFICATION ---
+    match /mtu_receipts/{receiptId} {
+      allow get, list: if isAdminOrAbove() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(receiptId) && isSignedIn() && isValidMtuReceipt(incoming()) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'PENDING_VERIFICATION' &&
+                       incoming().approvedAmountAfn == 0;
+      allow update: if isValidId(receiptId) && isAdminOrAbove() &&
+                       isValidMtuReceipt(incoming()) &&
+                       existing().status == 'PENDING_VERIFICATION' &&
+                       incoming().status in ['APPROVED', 'REJECTED'] &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if false;
+    }
+
+    // --- PAYMENTS & INVOICES ---
+    match /payments/{paymentId} {
+      allow get, list: if isStaff() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(paymentId) && isStaff() && isValidPayment(incoming()) &&
+                       (incoming().method != 'MTU' || isAdminOrAbove());
+      allow update: if isValidId(paymentId) && isSeniorAdminOrOwner() && isValidPayment(incoming()) &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if false;
+    }
+
+    match /invoices/{invoiceId} {
+      allow get, list: if isStaff() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create, update: if isValidId(invoiceId) && isStaff() && isValidInvoice(incoming());
+      allow delete: if false;
+    }
+
+    // --- EXPENSES, SUPPLIERS, PAYROLL ---
+    match /expenses/{expenseId} {
+      allow get, list: if isAdminOrAbove();
+      allow create: if isValidId(expenseId) && isAdminOrAbove() &&
+                       incoming().title is string && incoming().title.size() <= 150 &&
+                       incoming().amountAfn is number && incoming().amountAfn > 0 &&
+                       incoming().voided == false &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow update: if isValidId(expenseId) && isSeniorAdminOrOwner() &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow delete: if false;
+    }
+
+    match /suppliers/{supplierId} {
+      allow get, list: if isAdminOrAbove();
+      allow create, update: if isValidId(supplierId) && isAdminOrAbove() &&
+                               incoming().name is string && incoming().name.size() <= 120 &&
+                               incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow delete: if isValidId(supplierId) && isSuperAdmin();
+    }
+
+    match /payroll/{payrollId} {
+      allow get, list: if isSeniorAdminOrOwner();
+      allow create, update: if isValidId(payrollId) && isSuperAdmin() &&
+                               incoming().employeeName is string && incoming().employeeName.size() <= 120 &&
+                               incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow delete: if isValidId(payrollId) && isSuperAdmin();
+    }
+
+    // --- NOTIFICATIONS, FEEDBACK, AUDIT, SETTINGS, BACKUPS ---
+    match /notifications/{notificationId} {
+      allow get, list: if isStaff() || (isSignedIn() && resource.data.targetUserId == request.auth.uid);
+      allow create: if isValidId(notificationId) && isSignedIn();
+      allow update: if isValidId(notificationId) && isSignedIn() && (
+        isStaff() ||
+        (existing().targetUserId == request.auth.uid &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['readFlag']))
+      );
+      allow delete: if isValidId(notificationId) && isSuperAdmin();
+    }
+
+    match /feedback_complaints/{itemId} {
+      allow get, list: if isAdminOrAbove() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(itemId) && isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().message is string && incoming().message.size() >= 2 && incoming().message.size() <= 1500 &&
+                       incoming().status == 'OPEN' &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow update: if isValidId(itemId) && isAdminOrAbove() &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow delete: if isValidId(itemId) && isSuperAdmin();
+    }
+
+    match /audit_logs/{logId} {
+      allow get, list: if isSeniorAdminOrOwner();
+      allow create: if isValidId(logId) && isSignedIn() &&
+                       incoming().actorUid == request.auth.uid &&
+                       incoming().action is string && incoming().action.size() <= 120 &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time;
+      allow update, delete: if false;
+    }
+
+    match /backups/{backupId} {
+      allow get, list, create: if isValidId(backupId) && isSuperAdmin();
+      allow update, delete: if false;
+    }
+
+    match /clinic_settings/{docId} {
+      allow get, list: if isStaff();
+      allow create, update: if isValidId(docId) && isSuperAdmin();
+      allow delete: if false;
+    }
+  }
+}

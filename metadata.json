@@ -1,0 +1,6 @@
+{
+  "name": "Sakha Dental",
+  "description": "Sakha Specialised Dental Centre — Complete multilingual (Dari, Pashto, English) dental clinic management ecosystem, Super Admin control panel, Doctor & Reception portals, Patient & Guest portals, MTU & HesabPay verification, and AI dental assistance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

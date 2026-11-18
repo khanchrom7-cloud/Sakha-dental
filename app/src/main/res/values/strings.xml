@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sakha Dental</string>
+    <string name="clinic_official_name_en">Sakha Specialised Dental Centre</string>
+    <string name="clinic_official_name_fa">مرکز تخصصی دندان و ایمپلنت سخا</string>
+    <string name="clinic_motto">سخا، نماد تخصص، زیبایی و اعتماد</string>
+</resources>

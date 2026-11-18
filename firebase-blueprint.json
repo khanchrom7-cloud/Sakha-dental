@@ -1,0 +1,325 @@
+{
+  "entities": {
+    "PublicClinicProfile": {
+      "title": "PublicClinicProfile",
+      "description": "Centrally managed public clinic identity, contact details, working hours, announcements, and website content.",
+      "type": "object",
+      "properties": {
+        "nameEn": { "type": "string" },
+        "nameFa": { "type": "string" },
+        "namePs": { "type": "string" },
+        "motto": { "type": "string" },
+        "addressFa": { "type": "string" },
+        "addressEn": { "type": "string" },
+        "phones": { "type": "array" },
+        "email": { "type": "string" },
+        "workingHoursEn": { "type": "string" },
+        "workingHoursFa": { "type": "string" },
+        "fridayStatusEn": { "type": "string" },
+        "fridayStatusFa": { "type": "string" },
+        "announcementTitle": { "type": "string" },
+        "announcementBody": { "type": "string" },
+        "websiteHeroTitle": { "type": "string" },
+        "websiteHeroSubtitle": { "type": "string" },
+        "websitePublished": { "type": "boolean" },
+        "socialFacebook": { "type": "string" },
+        "socialInstagram": { "type": "string" },
+        "socialWhatsapp": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nameEn", "nameFa", "motto", "addressFa", "email", "updatedAt"]
+    },
+    "PublicDoctorProfile": {
+      "title": "PublicDoctorProfile",
+      "description": "Centrally managed approved professional biography of Dr. Ghulam Sediq Sakha shared by Guest Portal, Patient Portal, and public website.",
+      "type": "object",
+      "properties": {
+        "fullNameEn": { "type": "string" },
+        "fullNameFa": { "type": "string" },
+        "titleFa": { "type": "string" },
+        "titleEn": { "type": "string" },
+        "bioFa": { "type": "string" },
+        "bioEn": { "type": "string" },
+        "bioPs": { "type": "string" },
+        "education": { "type": "array" },
+        "training": { "type": "array" },
+        "licenses": { "type": "array" },
+        "experience": { "type": "array" },
+        "practiceAreas": { "type": "array" },
+        "achievements": { "type": "array" },
+        "published": { "type": "boolean" },
+        "version": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fullNameEn", "fullNameFa", "titleFa", "published", "version", "updatedAt"]
+    },
+    "PublicService": {
+      "title": "PublicService",
+      "description": "Public dental service catalogue entry strictly excluding any pricing, rates, ranges, or estimates.",
+      "type": "object",
+      "properties": {
+        "nameEn": { "type": "string" },
+        "nameFa": { "type": "string" },
+        "namePs": { "type": "string" },
+        "category": { "type": "string" },
+        "descriptionEn": { "type": "string" },
+        "descriptionFa": { "type": "string" },
+        "descriptionPs": { "type": "string" },
+        "generalInfoEn": { "type": "string" },
+        "generalInfoFa": { "type": "string" },
+        "published": { "type": "boolean" },
+        "sortOrder": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nameEn", "nameFa", "category", "published", "sortOrder", "updatedAt"]
+    },
+    "InternalServicePricing": {
+      "title": "InternalServicePricing",
+      "description": "Staff-only internal pricing configuration completely isolated from Guest and Patient APIs.",
+      "type": "object",
+      "properties": {
+        "serviceId": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "category": { "type": "string" },
+        "unitPriceAfn": { "type": "number" },
+        "bridgeUnitPriceAfn": { "type": "number" },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["serviceId", "serviceName", "unitPriceAfn", "active", "updatedAt"]
+    },
+    "StaffRole": {
+      "title": "StaffRole",
+      "description": "Server-enforced staff role assignment for RBAC.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "SENIOR_ADMIN", "ADMIN", "DOCTOR", "RECEPTIONIST"] },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "active", "createdAt", "updatedAt"]
+    },
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Authenticated user preferences and optional approved patient link.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "phone": { "type": "string" },
+        "preferredLanguage": { "type": "string", "enum": ["DARI", "PASHTO", "ENGLISH"] },
+        "calendarMode": { "type": "string", "enum": ["SOLAR_HIJRI", "GREGORIAN", "DUAL"] },
+        "linkedPatientId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "preferredLanguage", "calendarMode", "createdAt", "updatedAt"]
+    },
+    "PatientRecord": {
+      "title": "PatientRecord",
+      "description": "Core patient record with unique code, demographics, medical history, and optional linked user UID.",
+      "type": "object",
+      "properties": {
+        "patientCode": { "type": "string" },
+        "fullName": { "type": "string" },
+        "phone": { "type": "string" },
+        "age": { "type": "integer" },
+        "gender": { "type": "string" },
+        "address": { "type": "string" },
+        "medicalHistory": { "type": "string" },
+        "allergies": { "type": "string" },
+        "linkedUserUid": { "type": "string" },
+        "archived": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientCode", "fullName", "phone", "age", "archived", "createdAt", "updatedAt"]
+    },
+    "TreatmentPlan": {
+      "title": "TreatmentPlan",
+      "description": "Dental treatment plan using FDI teeth, pricing formula, and step completion tracking.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "linkedUserUid": { "type": "string" },
+        "patientName": { "type": "string" },
+        "doctorName": { "type": "string" },
+        "treatmentName": { "type": "string" },
+        "category": { "type": "string" },
+        "teethFdi": { "type": "array" },
+        "bridgeFlag": { "type": "boolean" },
+        "abutmentTeeth": { "type": "array" },
+        "ponticTeeth": { "type": "array" },
+        "unitCount": { "type": "integer" },
+        "unitPriceAfn": { "type": "number" },
+        "totalPriceAfn": { "type": "number" },
+        "status": { "type": "string", "enum": ["PLANNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] },
+        "steps": { "type": "array" },
+        "completedSteps": { "type": "array" },
+        "clinicalNotes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "patientName", "treatmentName", "category", "unitCount", "unitPriceAfn", "totalPriceAfn", "status", "createdAt", "updatedAt"]
+    },
+    "AppointmentRecord": {
+      "title": "AppointmentRecord",
+      "description": "Appointment and visit classification record with Gregorian & Solar Hijri dates and 150 AFN deposit tracking.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "userId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "patientPhone": { "type": "string" },
+        "doctorName": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "dateIso": { "type": "string" },
+        "solarHijriDate": { "type": "string" },
+        "timeSlot": { "type": "string" },
+        "visitType": { "type": "string", "enum": ["APPOINTMENT", "ACTUAL_VISIT", "CONSULTATION", "COMPLETED_TREATMENT", "FOLLOW_UP", "CANCELLED"] },
+        "status": { "type": "string", "enum": ["REQUESTED", "CONFIRMED", "CHECKED_IN", "COMPLETED", "CANCELLED", "NO_SHOW"] },
+        "depositRequiredAfn": { "type": "number" },
+        "depositPaid": { "type": "boolean" },
+        "latePolicyMinutes": { "type": "integer" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "patientName", "dateIso", "timeSlot", "visitType", "status", "depositRequiredAfn", "depositPaid", "createdAt", "updatedAt"]
+    },
+    "MtuReceiptSubmission": {
+      "title": "MtuReceiptSubmission",
+      "description": "Simple single-image MTU receipt upload pending manual verification against clinic receiving phone.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "appointmentId": { "type": "string" },
+        "invoiceId": { "type": "string" },
+        "receiptImageBase64": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING_VERIFICATION", "APPROVED", "REJECTED"] },
+        "approvedAmountAfn": { "type": "number" },
+        "rejectionReason": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "patientName", "receiptImageBase64", "status", "approvedAmountAfn", "createdAt", "updatedAt"]
+    },
+    "PaymentRecord": {
+      "title": "PaymentRecord",
+      "description": "Confirmed financial payment record with historical exchange rate preservation.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "userId": { "type": "string" },
+        "invoiceId": { "type": "string" },
+        "mtuReceiptId": { "type": "string" },
+        "amountAfn": { "type": "number" },
+        "currency": { "type": "string", "enum": ["AFN", "USD", "EUR", "PKR", "IRR"] },
+        "originalAmount": { "type": "number" },
+        "exchangeRate": { "type": "number" },
+        "method": { "type": "string", "enum": ["CASH", "HESABPAY", "MTU"] },
+        "status": { "type": "string", "enum": ["CONFIRMED", "REFUNDED"] },
+        "recordedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "userId", "amountAfn", "currency", "originalAmount", "exchangeRate", "method", "status", "createdAt"]
+    },
+    "InvoiceRecord": {
+      "title": "InvoiceRecord",
+      "description": "Patient invoice summarizing charges, discounts, paid amount, and balance.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "userId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "subtotalAfn": { "type": "number" },
+        "discountAfn": { "type": "number" },
+        "totalAfn": { "type": "number" },
+        "paidAfn": { "type": "number" },
+        "balanceAfn": { "type": "number" },
+        "status": { "type": "string", "enum": ["UNPAID", "PARTIAL", "PAID", "VOID"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "userId", "patientName", "totalAfn", "paidAfn", "balanceAfn", "status", "createdAt", "updatedAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable administrative and clinical audit log entry.",
+      "type": "object",
+      "properties": {
+        "actorUid": { "type": "string" },
+        "actorEmail": { "type": "string" },
+        "actorRole": { "type": "string" },
+        "action": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["actorUid", "action", "entityType", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/public_clinic_profile/{docId}": {
+      "schema": { "$ref": "#/entities/PublicClinicProfile" },
+      "description": "Public clinic information and website content"
+    },
+    "/public_doctor_profile/{docId}": {
+      "schema": { "$ref": "#/entities/PublicDoctorProfile" },
+      "description": "Central approved doctor biography shared by Guest, Patient, and Website"
+    },
+    "/public_services/{serviceId}": {
+      "schema": { "$ref": "#/entities/PublicService" },
+      "description": "Public dental services catalogue without any prices"
+    },
+    "/internal_service_pricing/{pricingId}": {
+      "schema": { "$ref": "#/entities/InternalServicePricing" },
+      "description": "Staff-only internal service rates"
+    },
+    "/staff_roles/{uid}": {
+      "schema": { "$ref": "#/entities/StaffRole" },
+      "description": "Authoritative RBAC role registry"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Authenticated user account and preferences"
+    },
+    "/patients/{patientId}": {
+      "schema": { "$ref": "#/entities/PatientRecord" },
+      "description": "Patient demographic and clinical profiles"
+    },
+    "/treatments/{treatmentId}": {
+      "schema": { "$ref": "#/entities/TreatmentPlan" },
+      "description": "Tooth-specific treatment plans and progress"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": { "$ref": "#/entities/AppointmentRecord" },
+      "description": "Appointments, online booking requests, and visit classifications"
+    },
+    "/mtu_receipts/{receiptId}": {
+      "schema": { "$ref": "#/entities/MtuReceiptSubmission" },
+      "description": "MTU mobile money screenshot submissions pending verification"
+    },
+    "/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/PaymentRecord" },
+      "description": "Confirmed financial payment ledger"
+    },
+    "/invoices/{invoiceId}": {
+      "schema": { "$ref": "#/entities/InvoiceRecord" },
+      "description": "Patient billing invoices"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Immutable security and accounting audit log"
+    }
+  }
+}
